@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+
 from typing import Optional
 import numpy as np
 import pygame
@@ -22,20 +25,23 @@ VIEWPORT_FACTOR = 0.4
 
 
 class Renderer:
-    def __init__(self, map: Map, display_res: tuple[int, int] = DISPLAY_RES):
+    def __init__(self, game_map: Map, display_res: tuple[int, int] = DISPLAY_RES):
         pygame.init()
-        self.map = map
+        self.map = game_map
         self.display_res = display_res
-        self._viewport_w = int(map.pixel_width * VIEWPORT_FACTOR)
-        self._viewport_h = int(map.pixel_height * VIEWPORT_FACTOR)
-        self._surface = pygame.Surface((map.pixel_width, map.pixel_height))
+        self._viewport_w = int(game_map.pixel_width * VIEWPORT_FACTOR)
+        self._viewport_h = int(game_map.pixel_height * VIEWPORT_FACTOR)
+        self._surface = pygame.Surface((game_map.pixel_width, game_map.pixel_height))
         self._window: Optional[pygame.Surface] = None
         self._clock: Optional[pygame.time.Clock] = None
+        # Pre-bake static geometry (tiles + fixtures never change during an episode)
+        self._static = pygame.Surface((game_map.pixel_width, game_map.pixel_height))
+        self._draw_map_to(self._static)
+        self._draw_fixtures_to(self._static)
 
     def render(self, robot: Robot, task_manager: TaskManager) -> pygame.Surface:
         """Draw frame to internal surface. Return viewport Surface centered on robot."""
-        self._draw_map()
-        self._draw_fixtures(task_manager)
+        self._surface.blit(self._static, (0, 0))
         self._draw_items(task_manager)
         self._draw_robot(robot)
         return self._extract_viewport(robot)
@@ -79,14 +85,14 @@ class Renderer:
         vp.blit(self._surface, (0, 0), (vx, vy, self._viewport_w, self._viewport_h))
         return vp
 
-    def _draw_map(self):
+    def _draw_map_to(self, surface: pygame.Surface):
         ts = self.map.tile_size
         for row in range(self.map.tiles.shape[0]):
             for col in range(self.map.tiles.shape[1]):
                 color = _FLOOR_COLOR if self.map.tiles[row, col] == FLOOR else _WALL_COLOR
-                pygame.draw.rect(self._surface, color, (col * ts, row * ts, ts, ts))
+                pygame.draw.rect(surface, color, (col * ts, row * ts, ts, ts))
 
-    def _draw_fixtures(self, task_manager: TaskManager):
+    def _draw_fixtures_to(self, surface: pygame.Surface):
         ts = self.map.tile_size
         color_map = {
             "fridge":   _FRIDGE_COLOR,
@@ -95,10 +101,7 @@ class Renderer:
         }
         for name, (col, row) in self.map.fixtures.items():
             color = color_map.get(name, (200, 200, 200))
-            pygame.draw.rect(
-                self._surface, color,
-                (col * ts + 4, row * ts + 4, ts - 8, ts - 8),
-            )
+            pygame.draw.rect(surface, color, (col * ts + 4, row * ts + 4, ts - 8, ts - 8))
 
     def _draw_items(self, task_manager: TaskManager):
         ts = self.map.tile_size
