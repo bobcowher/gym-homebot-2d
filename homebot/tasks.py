@@ -3,7 +3,8 @@ import numpy as np
 from homebot.maps import Map
 from homebot.robot import Robot
 
-_PICKUP_RANGE = 1.5  # multiplier on tile_size for interaction distance
+_FIXTURE_RANGE = 1.5  # tile_size multiplier for fridge/recliner/door interaction radius
+_TRASH_RANGE = 0.5   # tile_size multiplier for floor trash pickup (tighter than fixtures)
 
 
 def _dist(ax, ay, bx, by) -> float:
@@ -53,7 +54,8 @@ class TaskManager:
     def _check_trash(self, robot: Robot, map: Map) -> float:
         if "trash" not in self.goals:
             return 0.0
-        pickup_dist = robot.RADIUS + map.tile_size * 0.5
+        # Trash collection does not require empty hands — robot vacuums while carrying.
+        pickup_dist = robot.RADIUS + map.tile_size * _TRASH_RANGE
         reward = 0.0
         remaining = []
         for pos in self.trash_positions:
@@ -68,7 +70,7 @@ class TaskManager:
     def _check_drink(self, robot: Robot, map: Map) -> float:
         if "drink" not in self.goals or self.drink_delivered:
             return 0.0
-        pickup_dist = robot.RADIUS + map.tile_size * _PICKUP_RANGE
+        pickup_dist = robot.RADIUS + map.tile_size * _FIXTURE_RANGE
         fridge_px, fridge_py = map.tile_to_pixel(*map.fixtures["fridge"])
         rec_px, rec_py = map.tile_to_pixel(*map.fixtures["recliner"])
 
@@ -85,7 +87,7 @@ class TaskManager:
     def _check_package(self, robot: Robot, map: Map) -> float:
         if "package" not in self.goals or self.package_delivered:
             return 0.0
-        pickup_dist = robot.RADIUS + map.tile_size * _PICKUP_RANGE
+        pickup_dist = robot.RADIUS + map.tile_size * _FIXTURE_RANGE
         door_px, door_py = map.tile_to_pixel(*map.fixtures["door"])
         rec_px, rec_py = map.tile_to_pixel(*map.fixtures["recliner"])
 
