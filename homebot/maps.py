@@ -1,11 +1,13 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, Type
 
 FLOOR = 0
 WALL = 1
 
 
 class Map:
+    """Base class for HomeBot maps. Subclasses must set tile_size, tiles, fixtures, robot_start_tile in __init__."""
+
     tile_size: int
     tiles: np.ndarray        # shape (rows, cols)
     fixtures: dict           # {"fridge": (col, row), "recliner": (col, row), "door": (col, row)}
@@ -91,6 +93,6 @@ class DefaultHouseMap(Map):
         self.robot_start_tile = (3, 3)  # living room
 
 
-MAP_REGISTRY: dict[str, type] = {
+MAP_REGISTRY: dict[str, Type[Map]] = {
     "default": DefaultHouseMap,
 }

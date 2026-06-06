@@ -66,3 +66,23 @@ def test_map_registry_contains_default():
     assert "default" in MAP_REGISTRY
     m = MAP_REGISTRY["default"]()
     assert isinstance(m, Map)
+
+
+def test_pixel_dimensions():
+    m = DefaultHouseMap()
+    assert m.pixel_width == 24 * 32
+    assert m.pixel_height == 18 * 32
+
+
+def test_spawn_trash_zero():
+    m = DefaultHouseMap()
+    rng = np.random.default_rng(0)
+    assert m.spawn_trash(0, rng) == []
+
+
+def test_spawn_trash_clamps_to_available():
+    m = DefaultHouseMap()
+    rng = np.random.default_rng(0)
+    floor_count = len(m.valid_floor_tiles())
+    result = m.spawn_trash(floor_count + 100, rng)
+    assert len(result) == floor_count
