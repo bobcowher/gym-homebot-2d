@@ -9,7 +9,7 @@ from homebot.renderer import Renderer
 
 
 class HomeBotEnv(gym.Env):
-    metadata = {"render_modes": ["human"], "render_fps": 60}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
     def __init__(
         self,
@@ -22,6 +22,8 @@ class HomeBotEnv(gym.Env):
         map_name: str = "default",
     ):
         super().__init__()
+        if action_mode not in ("discrete", "continuous"):
+            raise ValueError(f"action_mode must be 'discrete' or 'continuous', got {action_mode!r}")
         if goals is None:
             goals = ["trash", "drink", "package"]
 
@@ -31,12 +33,12 @@ class HomeBotEnv(gym.Env):
         self.max_steps = max_steps
         self.render_mode = render_mode
         self.n_trash = n_trash
+        self.map_name = map_name
 
         self._map: Map = MAP_REGISTRY[map_name]()
         self._robot = Robot(self._map.tile_to_pixel(*self._map.robot_start_tile))
         self._task_manager = TaskManager(goals)
         self._renderer = Renderer(self._map)
-        self._rng = np.random.default_rng()
         self._steps = 0
 
         if action_mode == "discrete":
@@ -53,19 +55,17 @@ class HomeBotEnv(gym.Env):
             low=0, high=255, shape=(h, w, 3), dtype=np.uint8
         )
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
-        if seed is not None:
-            self._rng = np.random.default_rng(seed)
         self._robot.reset()
-        self._task_manager.reset(self._map, self.n_trash, self._rng)
+        self._task_manager.reset(self._map, self.n_trash, self.np_random)
         self._steps = 0
         obs = self._get_obs()
         info = self._task_manager.get_info()
         info["carrying"] = self._robot.carrying
         return obs, info
 
-    def step(self, action):
+    def step(self, action) -> tuple[np.ndarray, float, bool, bool, dict]:
         self._steps += 1
 
         if self.action_mode == "discrete":
@@ -82,8 +82,11 @@ class HomeBotEnv(gym.Env):
         info["carrying"] = self._robot.carrying
         return obs, reward, terminated, truncated, info
 
-    def render(self):
+    def render(self) -> Optional[np.ndarray]:
         viewport = self._renderer.render(self._robot, self._task_manager)
+        if self.render_mode == "human":
+            self._renderer.show_in_window(viewport)
+            return None
         return self._renderer.to_display(viewport)
 
     def close(self):
