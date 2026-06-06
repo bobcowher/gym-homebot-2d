@@ -44,6 +44,9 @@ def test_wall_collision_keeps_robot_on_floor(map_and_robot):
     col = int(robot.x // m.tile_size)
     row = int(robot.y // m.tile_size)
     assert m.tiles[row, col] == FLOOR
+    # Robot must be pinned near the wall — within one step of its resting position
+    assert robot.y <= m.tile_to_pixel(*m.robot_start_tile)[1]
+    assert robot.y >= robot.RADIUS
 
 
 def test_robot_stays_in_bounds(map_and_robot):
@@ -51,7 +54,8 @@ def test_robot_stays_in_bounds(map_and_robot):
     for _ in range(200):
         robot.move_discrete(6, m.tiles, m.tile_size)  # West
     assert robot.x >= robot.RADIUS
-    assert robot.y >= robot.RADIUS
+    # Must be pinned near the left wall, not stopped in the middle of the room
+    assert robot.x <= m.tile_size * 2
 
 
 def test_reset_restores_position(map_and_robot):
@@ -80,3 +84,11 @@ def test_continuous_wall_collision_keeps_on_floor(map_and_robot):
     col = int(robot.x // m.tile_size)
     row = int(robot.y // m.tile_size)
     assert m.tiles[row, col] == FLOOR
+    assert robot.y >= robot.RADIUS
+    assert robot.y <= m.tile_to_pixel(*m.robot_start_tile)[1]
+
+
+def test_discrete_invalid_action_raises(map_and_robot):
+    m, robot = map_and_robot
+    with pytest.raises(ValueError):
+        robot.move_discrete(8, m.tiles, m.tile_size)

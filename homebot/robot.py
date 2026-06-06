@@ -31,6 +31,8 @@ class Robot:
         return (self.x, self.y)
 
     def move_discrete(self, action: int, tiles: np.ndarray, tile_size: int):
+        if not (0 <= action < len(_DIRS)):
+            raise ValueError(f"action must be in [0, {len(_DIRS) - 1}], got {action}")
         dx, dy = _DIRS[action]
         speed = self.DISCRETE_SPEED / math.sqrt(2) if (dx != 0 and dy != 0) else self.DISCRETE_SPEED
         self._try_move(dx * speed, dy * speed, tiles, tile_size)
@@ -52,6 +54,7 @@ class Robot:
             self.y = ny   # slide along y
 
     def _collides(self, x: float, y: float, tiles: np.ndarray, tile_size: int) -> bool:
+        # 8-point circle probe: gap between probes is ~9px. Safe for tile_size>=16.
         for deg in range(0, 360, 45):
             rad = math.radians(deg)
             px = x + math.cos(rad) * self.RADIUS
