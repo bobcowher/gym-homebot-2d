@@ -139,12 +139,13 @@ class Renderer:
         ca, sa = math.cos(a), math.sin(a)   # forward unit vector
         cp, sp = -sa,  ca                   # left-perpendicular unit vector
 
-        # Wheels: centered on sides (real robot geometry), chunky treads
+        # Wheels: shifted toward front third, chunky treads
         whl = R          # half-length — wheels span full body length
         whw = 3          # half-width of tread
+        fwd_off = R * 0.35
         for sign in (1, -1):
-            wcx = cx + sign * cp * R
-            wcy = cy + sign * sp * R
+            wcx = cx + ca * fwd_off + sign * cp * R
+            wcy = cy + sa * fwd_off + sign * sp * R
             pts = [
                 (wcx + ca*whl + sign*cp*whw, wcy + sa*whl + sign*sp*whw),
                 (wcx - ca*whl + sign*cp*whw, wcy - sa*whl + sign*sp*whw),
