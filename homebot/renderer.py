@@ -14,7 +14,6 @@ from homebot.tasks import TaskManager
 _FLOOR_COLOR    = (220, 210, 190)
 _WALL_COLOR     = (60,  50,  40)
 _FRIDGE_COLOR   = (100, 180, 255)
-_RECLINER_COLOR = (200, 100, 80)
 _DOOR_COLOR     = (180, 140, 80)
 _TRASH_COLOR    = (150, 150, 150)
 _DRINK_COLOR    = (100, 200, 150)
@@ -59,6 +58,7 @@ class Renderer:
     def render(self, robot: Robot, task_manager: TaskManager) -> pygame.Surface:
         """Draw frame to internal surface. Return viewport Surface centered on robot."""
         self._surface.blit(self._static, (0, 0))
+        self._draw_recliner()
         self._draw_items(task_manager)
         self._draw_robot(robot)
         return self._extract_viewport(robot)
@@ -112,13 +112,41 @@ class Renderer:
     def _draw_fixtures_to(self, surface: pygame.Surface):
         ts = self.map.tile_size
         color_map = {
-            "fridge":   _FRIDGE_COLOR,
-            "recliner": _RECLINER_COLOR,
-            "door":     _DOOR_COLOR,
+            "fridge": _FRIDGE_COLOR,
+            "door":   _DOOR_COLOR,
         }
         for name, (col, row) in self.map.fixtures.items():
-            color = color_map.get(name, (200, 200, 200))
+            if name not in color_map:
+                continue  # recliner drawn dynamically
+            color = color_map[name]
             pygame.draw.rect(surface, color, (col * ts + 4, row * ts + 4, ts - 8, ts - 8))
+
+    def _draw_recliner(self):
+        ts = self.map.tile_size
+        col, row = self.map.fixtures["recliner"]
+        cx = col * ts + ts // 2
+        cy = row * ts + ts // 2
+
+        # Gentle rocking: ±2px, ~3-second cycle
+        rock = round(math.sin(pygame.time.get_ticks() / 1000.0 * 2.0) * 2)
+
+        # Chair body — red recliner
+        pygame.draw.rect(self._surface, (160, 38, 28),
+                         (cx - 12, cy - 12 + rock, 24, 24), border_radius=3)
+        # Armrests — darker red strips on each side
+        pygame.draw.rect(self._surface, (110, 25, 18), (cx - 12, cy - 4 + rock, 3, 12))
+        pygame.draw.rect(self._surface, (110, 25, 18), (cx +  9, cy - 4 + rock, 3, 12))
+
+        # Jeans — denim blue, lower portion of chair
+        pygame.draw.rect(self._surface, (52, 72, 130), (cx - 6, cy + 2 + rock, 12, 8))
+
+        # T-shirt — light grey, torso area
+        pygame.draw.rect(self._surface, (188, 188, 184), (cx - 5, cy - 6 + rock, 10, 7))
+
+        # Hair — dark brown, top of head
+        pygame.draw.circle(self._surface, (55, 35, 18), (cx, cy - 9 + rock), 4)
+        # Face — skin tone, slightly lower
+        pygame.draw.circle(self._surface, (210, 158, 102), (cx, cy - 8 + rock), 3)
 
     def _draw_items(self, task_manager: TaskManager):
         ts = self.map.tile_size
