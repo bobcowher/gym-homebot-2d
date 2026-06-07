@@ -138,13 +138,13 @@ class Renderer:
         ca, sa = math.cos(a), math.sin(a)   # forward unit vector
         cp, sp = -sa,  ca                   # left-perpendicular unit vector
 
-        # Wheels: dark rectangles protruding from each side
-        whl = R - 1        # half-length along forward axis
-        whw = 3            # half-width of each wheel tread
-        woff = R + whw     # perpendicular offset from robot center to wheel center
+        # Wheels drawn first so the chassis sits on top of them.
+        # Center at ±R perp — inner half hidden under body, outer half visible.
+        whl = R + 2   # half-length along heading
+        whw = 4       # half-width of tread
         for sign in (1, -1):
-            wcx = cx + sign * cp * woff
-            wcy = cy + sign * sp * woff
+            wcx = cx + sign * cp * R
+            wcy = cy + sign * sp * R
             pts = [
                 (wcx + ca*whl + sign*cp*whw, wcy + sa*whl + sign*sp*whw),
                 (wcx - ca*whl + sign*cp*whw, wcy - sa*whl + sign*sp*whw),
@@ -153,21 +153,28 @@ class Renderer:
             ]
             pygame.draw.polygon(self._surface, _WHEEL_COLOR, pts)
 
-        # Chassis body
-        pygame.draw.circle(self._surface, _ROBOT_BODY_COLOR, (cx, cy), R)
+        # Chassis: dark shadow ring then off-white fill
+        pygame.draw.circle(self._surface, (50, 50, 50), (cx, cy), R)
+        pygame.draw.circle(self._surface, _ROBOT_BODY_COLOR, (cx, cy), R - 1)
 
-        # Bumper arc: front 160°, drawn as a thick polyline
-        bumper_pts = [
-            (cx + math.cos(a + math.radians(d)) * R,
-             cy + math.sin(a + math.radians(d)) * R)
-            for d in range(-80, 81, 6)
+        # Bumper: filled arc polygon spanning the front 150°
+        step = 5
+        outer = [
+            (cx + math.cos(a + math.radians(d)) * (R - 1),
+             cy + math.sin(a + math.radians(d)) * (R - 1))
+            for d in range(-75, 76, step)
         ]
-        pygame.draw.lines(self._surface, _BUMPER_COLOR, False, bumper_pts, 3)
+        inner = [
+            (cx + math.cos(a + math.radians(d)) * (R - 4),
+             cy + math.sin(a + math.radians(d)) * (R - 4))
+            for d in range(75, -76, -step)
+        ]
+        pygame.draw.polygon(self._surface, _BUMPER_COLOR, outer + inner)
 
         # Front sensor LED
         pygame.draw.circle(
             self._surface, _SENSOR_COLOR,
-            (int(cx + ca * (R - 3)), int(cy + sa * (R - 3))), 2,
+            (int(cx + ca * (R - 2)), int(cy + sa * (R - 2))), 2,
         )
 
         # Carry indicator

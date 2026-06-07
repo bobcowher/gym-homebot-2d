@@ -34,6 +34,7 @@ class Robot:
         if not (0 <= action < len(_DIRS)):
             raise ValueError(f"action must be in [0, {len(_DIRS) - 1}], got {action}")
         dx, dy = _DIRS[action]
+        self.angle = math.atan2(dy, dx)
         speed = self.DISCRETE_SPEED / math.sqrt(2) if (dx != 0 and dy != 0) else self.DISCRETE_SPEED
         self._try_move(dx * speed, dy * speed, tiles, tile_size)
 
