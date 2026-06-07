@@ -21,7 +21,7 @@ _DRINK_COLOR    = (100, 200, 150)
 _PACKAGE_COLOR  = (220, 180, 80)
 
 # Robot colors
-_ROBOT_BODY_COLOR = (42,  42,  42)   # dark gray chassis
+_ROBOT_BODY_COLOR = (68,  68,  68)   # super dark grey chassis
 _WHEEL_COLOR      = (18,  18,  18)   # near-black rubber treads
 _BUMPER_COLOR     = (55,  55,  55)   # slightly lighter front arc (direction cue)
 _LIDAR_COLOR      = (22,  22,  22)   # near-black LiDAR dome
@@ -139,10 +139,10 @@ class Renderer:
         ca, sa = math.cos(a), math.sin(a)   # forward unit vector
         cp, sp = -sa,  ca                   # left-perpendicular unit vector
 
-        # Wheels: shifted toward front third, chunky treads
-        whl = R          # half-length — wheels span full body length
-        whw = 3          # half-width of tread
+        # Wheels: shifted toward front third, capped so they don't protrude past body
         fwd_off = R * 0.35
+        whl = int(R * 0.60)  # front tip lands at fwd_off+whl ≈ 0.95R — just inside circle
+        whw = 3              # half-width of tread
         for sign in (1, -1):
             wcx = cx + ca * fwd_off + sign * cp * R
             wcy = cy + sa * fwd_off + sign * sp * R

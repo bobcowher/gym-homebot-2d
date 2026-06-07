@@ -10,7 +10,7 @@ _DIRS = [
 
 
 class Robot:
-    RADIUS = 12        # pixels
+    RADIUS = 15        # pixels
     DISCRETE_SPEED = 4 # pixels per step
     ANGULAR_SPEED = 0.08  # radians per step (continuous)
 
