@@ -21,10 +21,11 @@ _DRINK_COLOR    = (100, 200, 150)
 _PACKAGE_COLOR  = (220, 180, 80)
 
 # Robot colors
-_ROBOT_BODY_COLOR = (210, 210, 205)  # off-white chassis
-_WHEEL_COLOR      = (30,  30,  30)   # dark rubber
-_CASTER_COLOR     = (90,  90,  90)   # rear ball caster
-_BUMPER_COLOR     = (50,  120, 220)  # blue accent bumper
+_ROBOT_BODY_COLOR = (42,  42,  42)   # dark gray chassis
+_WHEEL_COLOR      = (18,  18,  18)   # near-black rubber treads
+_BUMPER_COLOR     = (55,  55,  55)   # slightly lighter front arc (direction cue)
+_LIDAR_COLOR      = (22,  22,  22)   # near-black LiDAR dome
+_LED_COLOR        = (100, 255, 60)   # neon green status LEDs
 
 VIEWPORT_FACTOR = 0.6
 _FALLBACK_DISPLAY_RES = (640, 512)  # used in headless / dummy-driver mode
@@ -138,18 +139,12 @@ class Renderer:
         ca, sa = math.cos(a), math.sin(a)   # forward unit vector
         cp, sp = -sa,  ca                   # left-perpendicular unit vector
 
-        # Rear ball caster — small, mostly hidden under chassis
-        cast_x = int(cx - ca * (R - 3))
-        cast_y = int(cy - sa * (R - 3))
-        pygame.draw.circle(self._surface, _CASTER_COLOR, (cast_x, cast_y), 2)
-
-        # Drive wheels — shifted to front third, smaller treads
-        fwd_off = R * 0.35
-        whl = 5   # half-length along heading
-        whw = 2   # half-width of tread
+        # Wheels: centered on sides (real robot geometry), chunky treads
+        whl = R          # half-length — wheels span full body length
+        whw = 3          # half-width of tread
         for sign in (1, -1):
-            wcx = cx + ca * fwd_off + sign * cp * R
-            wcy = cy + sa * fwd_off + sign * sp * R
+            wcx = cx + sign * cp * R
+            wcy = cy + sign * sp * R
             pts = [
                 (wcx + ca*whl + sign*cp*whw, wcy + sa*whl + sign*sp*whw),
                 (wcx - ca*whl + sign*cp*whw, wcy - sa*whl + sign*sp*whw),
@@ -158,31 +153,42 @@ class Renderer:
             ]
             pygame.draw.polygon(self._surface, _WHEEL_COLOR, pts)
 
-        # Chassis: dark outline ring, then off-white fill
-        pygame.draw.circle(self._surface, (50, 50, 50), (cx, cy), R)
+        # Chassis body
+        pygame.draw.circle(self._surface, (18, 18, 18), (cx, cy), R)      # edge shadow
         pygame.draw.circle(self._surface, _ROBOT_BODY_COLOR, (cx, cy), R - 1)
 
-        # Bumper: filled arc polygon spanning the front 150°
+        # Subtle front arc — just enough lighter shade to read direction
         step = 5
         outer = [
             (cx + math.cos(a + math.radians(d)) * (R - 1),
              cy + math.sin(a + math.radians(d)) * (R - 1))
-            for d in range(-75, 76, step)
+            for d in range(-70, 71, step)
         ]
         inner = [
-            (cx + math.cos(a + math.radians(d)) * (R - 4),
-             cy + math.sin(a + math.radians(d)) * (R - 4))
-            for d in range(75, -76, -step)
+            (cx + math.cos(a + math.radians(d)) * (R - 3),
+             cy + math.sin(a + math.radians(d)) * (R - 3))
+            for d in range(70, -71, -step)
         ]
         pygame.draw.polygon(self._surface, _BUMPER_COLOR, outer + inner)
 
-        # Camera: dark housing, tinted lens, specular glint
-        cam_x = int(cx + ca * (R - 5))
-        cam_y = int(cy + sa * (R - 5))
-        pygame.draw.circle(self._surface, (30, 30, 30), (cam_x, cam_y), 3)
-        pygame.draw.circle(self._surface, (25, 70, 140), (cam_x, cam_y), 2)
+        # LiDAR dome — dominant top feature, large dark circle
+        lidar_r = max(3, R // 2)
+        pygame.draw.circle(self._surface, (12, 12, 12), (cx, cy), lidar_r + 1)
+        pygame.draw.circle(self._surface, _LIDAR_COLOR, (cx, cy), lidar_r)
+
+        # Green status LEDs on each side (~45° forward from perpendicular)
+        for sign in (1, -1):
+            led_x = int(cx + ca * (R * 0.4) + sign * cp * (R - 3))
+            led_y = int(cy + sa * (R * 0.4) + sign * sp * (R - 3))
+            pygame.draw.circle(self._surface, _LED_COLOR, (led_x, led_y), 2)
+
+        # Camera: small, at front — dark housing, blue tinted lens, glint
+        cam_x = int(cx + ca * (R - 2))
+        cam_y = int(cy + sa * (R - 2))
+        pygame.draw.circle(self._surface, (20, 20, 20), (cam_x, cam_y), 2)
+        pygame.draw.circle(self._surface, (30, 80, 160), (cam_x, cam_y), 1)
         pygame.draw.circle(self._surface, (180, 215, 255),
-                           (int(cam_x - ca * 0.8), int(cam_y - sa * 0.8)), 1)
+                           (int(cam_x - ca * 0.6), int(cam_y - sa * 0.6)), 1)
 
         # Carry indicator
         if robot.carrying == "drink":
