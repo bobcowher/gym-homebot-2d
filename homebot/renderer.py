@@ -20,17 +20,27 @@ _TRASH_COLOR    = (150, 150, 150)
 _DRINK_COLOR    = (100, 200, 150)
 _PACKAGE_COLOR  = (220, 180, 80)
 
-DISPLAY_RES = (640, 512)
-VIEWPORT_FACTOR = 0.4
+VIEWPORT_FACTOR = 0.6
+_FALLBACK_DISPLAY_RES = (640, 512)  # used in headless / dummy-driver mode
+
+
+def _auto_display_res(viewport_w: int, viewport_h: int) -> tuple[int, int]:
+    """Scale viewport to fill ~85 % of the physical screen; fall back when headless."""
+    info = pygame.display.Info()
+    sw, sh = info.current_w, info.current_h
+    if sw <= 0 or sh <= 0:
+        return _FALLBACK_DISPLAY_RES
+    scale = min(sw * 0.85 / viewport_w, sh * 0.85 / viewport_h)
+    return (int(viewport_w * scale), int(viewport_h * scale))
 
 
 class Renderer:
-    def __init__(self, game_map: Map, display_res: tuple[int, int] = DISPLAY_RES):
+    def __init__(self, game_map: Map, display_res: Optional[tuple[int, int]] = None):
         pygame.init()
         self.map = game_map
-        self.display_res = display_res
         self._viewport_w = int(game_map.pixel_width * VIEWPORT_FACTOR)
         self._viewport_h = int(game_map.pixel_height * VIEWPORT_FACTOR)
+        self.display_res = display_res or _auto_display_res(self._viewport_w, self._viewport_h)
         self._surface = pygame.Surface((game_map.pixel_width, game_map.pixel_height))
         self._window: Optional[pygame.Surface] = None
         self._clock: Optional[pygame.time.Clock] = None
