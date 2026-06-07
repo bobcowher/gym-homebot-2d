@@ -1,6 +1,7 @@
 import os
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
+import math
 from typing import Optional
 import numpy as np
 import pygame
@@ -12,13 +13,18 @@ from homebot.tasks import TaskManager
 # Colors (RGB)
 _FLOOR_COLOR    = (220, 210, 190)
 _WALL_COLOR     = (60,  50,  40)
-_ROBOT_COLOR    = (50,  120, 220)
 _FRIDGE_COLOR   = (100, 180, 255)
 _RECLINER_COLOR = (200, 100, 80)
 _DOOR_COLOR     = (180, 140, 80)
 _TRASH_COLOR    = (150, 150, 150)
 _DRINK_COLOR    = (100, 200, 150)
 _PACKAGE_COLOR  = (220, 180, 80)
+
+# Robot colors
+_ROBOT_BODY_COLOR = (210, 210, 205)  # off-white chassis
+_WHEEL_COLOR      = (30,  30,  30)   # dark rubber
+_BUMPER_COLOR     = (50,  120, 220)  # blue accent bumper
+_SENSOR_COLOR     = (255, 240, 130)  # yellow front sensor LED
 
 VIEWPORT_FACTOR = 0.6
 _FALLBACK_DISPLAY_RES = (640, 512)  # used in headless / dummy-driver mode
@@ -127,8 +133,45 @@ class Renderer:
 
     def _draw_robot(self, robot: Robot):
         cx, cy = int(robot.x), int(robot.y)
-        pygame.draw.circle(self._surface, _ROBOT_COLOR, (cx, cy), robot.RADIUS)
+        R  = robot.RADIUS
+        a  = robot.angle
+        ca, sa = math.cos(a), math.sin(a)   # forward unit vector
+        cp, sp = -sa,  ca                   # left-perpendicular unit vector
+
+        # Wheels: dark rectangles protruding from each side
+        whl = R - 1        # half-length along forward axis
+        whw = 3            # half-width of each wheel tread
+        woff = R + whw     # perpendicular offset from robot center to wheel center
+        for sign in (1, -1):
+            wcx = cx + sign * cp * woff
+            wcy = cy + sign * sp * woff
+            pts = [
+                (wcx + ca*whl + sign*cp*whw, wcy + sa*whl + sign*sp*whw),
+                (wcx - ca*whl + sign*cp*whw, wcy - sa*whl + sign*sp*whw),
+                (wcx - ca*whl - sign*cp*whw, wcy - sa*whl - sign*sp*whw),
+                (wcx + ca*whl - sign*cp*whw, wcy + sa*whl - sign*sp*whw),
+            ]
+            pygame.draw.polygon(self._surface, _WHEEL_COLOR, pts)
+
+        # Chassis body
+        pygame.draw.circle(self._surface, _ROBOT_BODY_COLOR, (cx, cy), R)
+
+        # Bumper arc: front 160°, drawn as a thick polyline
+        bumper_pts = [
+            (cx + math.cos(a + math.radians(d)) * R,
+             cy + math.sin(a + math.radians(d)) * R)
+            for d in range(-80, 81, 6)
+        ]
+        pygame.draw.lines(self._surface, _BUMPER_COLOR, False, bumper_pts, 3)
+
+        # Front sensor LED
+        pygame.draw.circle(
+            self._surface, _SENSOR_COLOR,
+            (int(cx + ca * (R - 3)), int(cy + sa * (R - 3))), 2,
+        )
+
+        # Carry indicator
         if robot.carrying == "drink":
-            pygame.draw.circle(self._surface, _DRINK_COLOR, (cx, cy), 5)
+            pygame.draw.circle(self._surface, _DRINK_COLOR, (cx, cy), 4)
         elif robot.carrying == "package":
-            pygame.draw.rect(self._surface, _PACKAGE_COLOR, (cx - 5, cy - 5, 10, 10))
+            pygame.draw.rect(self._surface, _PACKAGE_COLOR, (cx - 4, cy - 4, 8, 8))
