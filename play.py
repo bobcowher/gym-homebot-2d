@@ -49,7 +49,7 @@ def main():
     parser.add_argument("--action-mode", default="discrete", choices=["discrete", "continuous"])
     parser.add_argument("--goals", nargs="+", default=["trash", "drink", "package"],
                         choices=["trash", "drink", "package"])
-    parser.add_argument("--n-trash", type=int, default=5)
+    parser.add_argument("--n-trash", type=int, default=2)
     parser.add_argument("--max-steps", type=int, default=2000)
     args = parser.parse_args()
 
@@ -83,6 +83,7 @@ def main():
         if args.action_mode == "discrete":
             action = _discrete_action(keys)
             if action is None:
+                env.render()  # keep animation running (recliner rocks) when idle
                 clock.tick(60)
                 continue
         else:

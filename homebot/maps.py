@@ -3,19 +3,37 @@ from typing import Optional, Type
 
 FLOOR = 0
 WALL = 1
+LAWN = 2   # outside ground: rendered green, solid (robot cannot enter)
 
 
 class Map:
-    """Base class for HomeBot maps. Subclasses must set tile_size, tiles, fixtures, robot_start_tile in __init__."""
+    """Base class for HomeBot maps. Subclasses must set tile_size, tiles, fixtures,
+    robot_start_tile in __init__, then call self._finalize() to build derived data
+    (solid-collision mask, door tiles)."""
 
     tile_size: int
-    tiles: np.ndarray        # shape (rows, cols)
-    fixtures: dict           # {"fridge": (col, row), "recliner": (col, row), "door": (col, row)}
+    tiles: np.ndarray        # shape (rows, cols): FLOOR / WALL / LAWN
+    solid: np.ndarray        # bool (rows, cols): True where the robot cannot move
+    fixtures: dict           # {"fridge": (col, row), "tv": (col, row), ...}
     robot_start_tile: tuple  # (col, row)
+    door_tiles: list         # FLOOR tiles rendered as a stoop threshold
+    solid_fixtures: dict = {}  # {name: (w_tiles, h_tiles)} footprints made solid
+
+    def _finalize(self):
+        """Build the solid mask: walls + lawn + fixture footprints."""
+        self.solid = self.tiles != FLOOR
+        for name, (w, h) in self.solid_fixtures.items():
+            col, row = self.fixtures[name]
+            for r in range(row - h // 2, row - h // 2 + h):
+                for c in range(col - w // 2, col - w // 2 + w):
+                    if 0 <= r < self.tiles.shape[0] and 0 <= c < self.tiles.shape[1]:
+                        self.solid[r, c] = True
 
     def valid_floor_tiles(self) -> list[tuple[int, int]]:
-        rows, cols = np.where(self.tiles == FLOOR)
-        return list(zip(cols.tolist(), rows.tolist()))  # (col, row)
+        """Reachable floor tiles (FLOOR and not solid) as (col, row)."""
+        mask = (self.tiles == FLOOR) & (~self.solid)
+        rows, cols = np.where(mask)
+        return list(zip(cols.tolist(), rows.tolist()))
 
     def spawn_trash(
         self,
@@ -48,22 +66,32 @@ class Map:
 
 class DefaultHouseMap(Map):
     """
-    24 cols x 18 rows, tile_size=32px → 768x576 pixel full map.
-    Viewport at 40% ≈ 307x230px.
+    27 cols x 18 rows, tile_size=32px -> 864x576 pixel full map.
 
-    Layout:
+    Layout (cols 1-22 are the house interior):
       Rows 1-7:  Living room (cols 1-10) | Kitchen (cols 12-22)
       Row 8:     Wall with doorways into hallway
-      Rows 9-10: Hallway (cols 1-22), exterior door at col 23
+      Rows 9-10: Hallway (cols 1-22), east doorway at col 23 opens outside
       Row 11:    Wall with doorway into bedroom
       Rows 12-16: Bedroom (cols 1-22)
+      Cols 24-26: Outside lawn (solid, green) — visible through the doorway
     """
 
     tile_size = 32
 
+    # Fixture footprints (tiles, w x h) that block the robot.
+    solid_fixtures = {
+        "recliner": (3, 3),
+        "tv":       (3, 2),
+        "fridge":   (2, 2),
+        "sink":     (2, 2),
+        "counter":  (2, 2),
+        "table":    (1, 1),
+    }
+
     def __init__(self):
-        COLS, ROWS = 24, 18
-        t = np.ones((ROWS, COLS), dtype=np.uint8)
+        COLS, ROWS = 27, 18
+        t = np.ones((ROWS, COLS), dtype=np.uint8) * WALL
 
         # Living room
         t[1:8, 1:11] = FLOOR
@@ -73,24 +101,32 @@ class DefaultHouseMap(Map):
         t[4:6, 11] = FLOOR
         # Hallway
         t[9:11, 1:23] = FLOOR
-        # Doorway: living room → hallway
+        # Doorway: living room -> hallway
         t[8, 4:7] = FLOOR
-        # Doorway: kitchen → hallway
+        # Doorway: kitchen -> hallway
         t[8, 14:17] = FLOOR
-        # Exterior door (right wall of hallway)
-        t[9:11, 23] = FLOOR
+        # Doorway: hallway -> bedroom
+        t[11, 10:13] = FLOOR
         # Bedroom
         t[12:17, 1:23] = FLOOR
-        # Doorway: hallway → bedroom
-        t[11, 10:13] = FLOOR
+        # East doorway: opening through the house wall (col 23) to outside
+        t[9:11, 23] = FLOOR
+        # Outside lawn (cols 24-26), solid — robot can see it but not enter
+        t[:, 24:27] = LAWN
 
         self.tiles = t
         self.fixtures = {
-            "fridge":   (19, 3),   # kitchen
-            "recliner": (4,  5),   # living room
-            "door":     (22, 10),  # hallway, near right wall
+            "fridge":   (19, 1),   # kitchen, pressed against the north wall
+            "sink":     (15, 1),   # kitchen, north wall
+            "counter":  (17, 1),   # kitchen, north wall between sink and fridge
+            "tv":       (5,  1),   # living room, pressed against the top wall
+            "recliner": (5,  5),   # living room, below TV — man faces up at it
+            "table":    (3,  5),   # living room, side table to man's left (west)
+            "door":     (23, 9),   # east doorway threshold (package sits here)
         }
-        self.robot_start_tile = (3, 3)  # living room
+        self.door_tiles = [(23, 9), (23, 10)]  # stoop threshold rendering
+        self.robot_start_tile = (8, 4)         # living room, clear of furniture
+        self._finalize()
 
 
 MAP_REGISTRY: dict[str, Type[Map]] = {

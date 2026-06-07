@@ -18,7 +18,7 @@ class HomeBotEnv(gym.Env):
         obs_resolution: tuple[int, int] = (84, 84),
         max_steps: int = 1000,
         render_mode: Optional[str] = None,
-        n_trash: int = 5,
+        n_trash: int = 2,
         map_name: str = "default",
     ):
         super().__init__()
@@ -69,9 +69,9 @@ class HomeBotEnv(gym.Env):
         self._steps += 1
 
         if self.action_mode == "discrete":
-            self._robot.move_discrete(int(action), self._map.tiles, self._map.tile_size)
+            self._robot.move_discrete(int(action), self._map.solid, self._map.tile_size)
         else:
-            self._robot.move_continuous(np.asarray(action, dtype=np.float32), self._map.tiles, self._map.tile_size)
+            self._robot.move_continuous(np.asarray(action, dtype=np.float32), self._map.solid, self._map.tile_size)
 
         reward = float(self._task_manager.step(self._robot, self._map))
         terminated = bool(self._task_manager.is_done())

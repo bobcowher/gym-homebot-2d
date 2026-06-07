@@ -3,7 +3,8 @@ import numpy as np
 from homebot.maps import Map
 from homebot.robot import Robot
 
-_FIXTURE_RANGE = 1.5  # tile_size multiplier for fridge/recliner/door interaction radius
+_FIXTURE_RANGE = 2.0  # tile_size multiplier for fridge/recliner/door interaction radius
+                      # (generous so the robot can interact while fixtures are solid)
 _TRASH_RANGE = 0.5   # tile_size multiplier for floor trash pickup (tighter than fixtures)
 
 

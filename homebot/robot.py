@@ -30,31 +30,31 @@ class Robot:
     def pos(self) -> tuple[float, float]:
         return (self.x, self.y)
 
-    def move_discrete(self, action: int, tiles: np.ndarray, tile_size: int):
+    def move_discrete(self, action: int, solid: np.ndarray, tile_size: int):
         if not (0 <= action < len(_DIRS)):
             raise ValueError(f"action must be in [0, {len(_DIRS) - 1}], got {action}")
         dx, dy = _DIRS[action]
         self.angle = math.atan2(dy, dx)
         speed = self.DISCRETE_SPEED / math.sqrt(2) if (dx != 0 and dy != 0) else self.DISCRETE_SPEED
-        self._try_move(dx * speed, dy * speed, tiles, tile_size)
+        self._try_move(dx * speed, dy * speed, solid, tile_size)
 
-    def move_continuous(self, action: np.ndarray, tiles: np.ndarray, tile_size: int):
+    def move_continuous(self, action: np.ndarray, solid: np.ndarray, tile_size: int):
         linear, angular = float(action[0]), float(action[1])
         self.angle += angular * self.ANGULAR_SPEED
         dx = math.cos(self.angle) * linear * self.DISCRETE_SPEED
         dy = math.sin(self.angle) * linear * self.DISCRETE_SPEED
-        self._try_move(dx, dy, tiles, tile_size)
+        self._try_move(dx, dy, solid, tile_size)
 
-    def _try_move(self, dx: float, dy: float, tiles: np.ndarray, tile_size: int):
+    def _try_move(self, dx: float, dy: float, solid: np.ndarray, tile_size: int):
         nx, ny = self.x + dx, self.y + dy
-        if not self._collides(nx, ny, tiles, tile_size):
+        if not self._collides(nx, ny, solid, tile_size):
             self.x, self.y = nx, ny
-        elif not self._collides(nx, self.y, tiles, tile_size):
+        elif not self._collides(nx, self.y, solid, tile_size):
             self.x = nx   # slide along x
-        elif not self._collides(self.x, ny, tiles, tile_size):
+        elif not self._collides(self.x, ny, solid, tile_size):
             self.y = ny   # slide along y
 
-    def _collides(self, x: float, y: float, tiles: np.ndarray, tile_size: int) -> bool:
+    def _collides(self, x: float, y: float, solid: np.ndarray, tile_size: int) -> bool:
         # 8-point circle probe: gap between probes is ~9px. Safe for tile_size>=16.
         for deg in range(0, 360, 45):
             rad = math.radians(deg)
@@ -62,8 +62,8 @@ class Robot:
             py = y + math.sin(rad) * self.RADIUS
             col = int(px // tile_size)
             row = int(py // tile_size)
-            if row < 0 or row >= tiles.shape[0] or col < 0 or col >= tiles.shape[1]:
+            if row < 0 or row >= solid.shape[0] or col < 0 or col >= solid.shape[1]:
                 return True
-            if tiles[row, col] != 0:
+            if solid[row, col]:
                 return True
         return False
