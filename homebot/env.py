@@ -40,7 +40,7 @@ class HomeBotEnv(gym.Env):
         self._map: Map = MAP_REGISTRY[map_name]()
         self._robot = Robot(self._map.tile_to_pixel(*self._map.robot_start_tile))
         self._task_manager = TaskManager(goals, subgoals=subgoals)
-        self._renderer = Renderer(self._map)
+        self._renderer = Renderer(self._map, headless=(render_mode != "human"))
         self._steps = 0
 
         if action_mode == "discrete":

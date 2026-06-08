@@ -45,7 +45,11 @@ def _auto_display_res(viewport_w: int, viewport_h: int) -> tuple[int, int]:
 
 
 class Renderer:
-    def __init__(self, game_map: Map, display_res: Optional[tuple[int, int]] = None):
+    def __init__(self, game_map: Map, display_res: Optional[tuple[int, int]] = None,
+                 headless: bool = False):
+        if headless:
+            os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+            os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
         pygame.init()
         self.map = game_map
         self._viewport_w = int(game_map.pixel_width * VIEWPORT_FACTOR)
