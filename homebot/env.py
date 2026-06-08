@@ -20,6 +20,7 @@ class HomeBotEnv(gym.Env):
         render_mode: Optional[str] = None,
         n_trash: int = 2,
         map_name: str = "default",
+        subgoals: bool = False,
     ):
         super().__init__()
         if action_mode not in ("discrete", "continuous"):
@@ -34,6 +35,7 @@ class HomeBotEnv(gym.Env):
         self.render_mode = render_mode
         self.n_trash = n_trash
         self.map_name = map_name
+        self.subgoals = subgoals
 
         self._map: Map = MAP_REGISTRY[map_name]()
         self._robot = Robot(self._map.tile_to_pixel(*self._map.robot_start_tile))
@@ -61,7 +63,7 @@ class HomeBotEnv(gym.Env):
         self._task_manager.reset(self._map, self.n_trash, self.np_random)
         self._steps = 0
         obs = self._get_obs()
-        info = self._task_manager.get_info()
+        info = self._task_manager.get_info(self._robot if self.subgoals else None)
         info["carrying"] = self._robot.carrying
         return obs, info
 
@@ -78,7 +80,7 @@ class HomeBotEnv(gym.Env):
         truncated = bool(self._steps >= self.max_steps)
 
         obs = self._get_obs()
-        info = self._task_manager.get_info()
+        info = self._task_manager.get_info(self._robot if self.subgoals else None)
         info["carrying"] = self._robot.carrying
         return obs, reward, terminated, truncated, info
 

@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 import numpy as np
 from homebot.maps import Map
 from homebot.robot import Robot
@@ -44,8 +45,30 @@ class TaskManager:
         package_done = "package" not in self.goals or self.package_delivered
         return trash_done and drink_done and package_done
 
-    def get_info(self) -> dict:
+    def active_goals(self, robot: Optional["Robot"] = None) -> list[str]:
+        """Return active goal strings. Without robot: high-level goals. With robot: current sub-goals."""
+        result = []
+        if "trash" in self.goals and self.trash_positions:
+            result.append("collect_trash")
+        if "drink" in self.goals and not self.drink_delivered:
+            if robot is None:
+                result.append("fetch_drink")
+            elif robot.carrying == "drink":
+                result.append("deliver_to_human")
+            else:
+                result.append("go_to_fridge")
+        if "package" in self.goals and not self.package_delivered:
+            if robot is None:
+                result.append("retrieve_package")
+            elif robot.carrying == "package":
+                result.append("deliver_to_human")
+            else:
+                result.append("go_to_door")
+        return result
+
+    def get_info(self, robot: Optional["Robot"] = None) -> dict:
         return {
+            "goals": self.active_goals(robot),
             "trash_remaining": len(self.trash_positions),
             "drink_delivered": self.drink_delivered,
             "package_delivered": self.package_delivered,
