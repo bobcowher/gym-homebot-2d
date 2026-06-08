@@ -20,17 +20,19 @@ def env():
 
 def test_cannot_drive_through_recliner(env):
     m, r = env._map, env._robot
-    r.x, r.y = m.tile_to_pixel(7, 5)  # just east of the recliner footprint
+    r.x, r.y = m.tile_to_pixel(7, 5)  # just east of the recliner
     for _ in range(40):
-        r.move_discrete(6, m.solid, m.tile_size)  # push west
-    assert r.x > 6 * m.tile_size  # stopped before entering the chair
+        r.move_discrete(6, m.wall_solid, m.tile_size, m.fixture_pixel_rects)  # push west
+    # stopped at sprite right edge (rect right=224) + robot radius
+    recliner_rect_right = m.fixture_pixel_rects["recliner"][2]
+    assert r.x >= recliner_rect_right + r.RADIUS - 1
 
 
 def test_cannot_enter_lawn_but_reaches_doorway(env):
     m, r = env._map, env._robot
     r.x, r.y = m.tile_to_pixel(22, 9)  # hallway by the east doorway
     for _ in range(40):
-        r.move_discrete(2, m.solid, m.tile_size)  # push east toward outside
+        r.move_discrete(2, m.wall_solid, m.tile_size, m.fixture_pixel_rects)  # push east
     assert r.x > 22 * m.tile_size                      # made it into the doorway
     assert r.x < 24 * m.tile_size - r.RADIUS + 1       # but not onto the lawn
 

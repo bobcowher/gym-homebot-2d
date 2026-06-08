@@ -71,9 +71,12 @@ class HomeBotEnv(gym.Env):
         self._steps += 1
 
         if self.action_mode == "discrete":
-            self._robot.move_discrete(int(action), self._map.solid, self._map.tile_size)
+            self._robot.move_discrete(int(action), self._map.wall_solid, self._map.tile_size,
+                                      self._map.fixture_pixel_rects)
         else:
-            self._robot.move_continuous(np.asarray(action, dtype=np.float32), self._map.solid, self._map.tile_size)
+            self._robot.move_continuous(np.asarray(action, dtype=np.float32),
+                                        self._map.wall_solid, self._map.tile_size,
+                                        self._map.fixture_pixel_rects)
 
         reward = float(self._task_manager.step(self._robot, self._map))
         terminated = bool(self._task_manager.is_done())

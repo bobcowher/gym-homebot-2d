@@ -13,21 +13,38 @@ class Map:
 
     tile_size: int
     tiles: np.ndarray        # shape (rows, cols): FLOOR / WALL / LAWN
-    solid: np.ndarray        # bool (rows, cols): True where the robot cannot move
+    solid: np.ndarray        # bool (rows, cols): walls + lawn + fixture footprints (for item spawn)
+    wall_solid: np.ndarray   # bool (rows, cols): walls + lawn only (for robot tile collision)
+    fixture_pixel_rects: dict  # {name: (left, top, right, bottom)} pixel-accurate fixture bounds
     fixtures: dict           # {"fridge": (col, row), "tv": (col, row), ...}
     robot_start_tile: tuple  # (col, row)
     door_tiles: list         # FLOOR tiles rendered as a stoop threshold
-    solid_fixtures: dict = {}  # {name: (w_tiles, h_tiles)} footprints made solid
+    solid_fixtures: dict = {}       # {name: (w_tiles, h_tiles)} tile footprints for item spawn
+    fixture_pixel_sizes: dict = {}  # {name: (px_w, px_h)} sprite pixel dimensions at render scale
 
     def _finalize(self):
-        """Build the solid mask: walls + lawn + fixture footprints."""
-        self.solid = self.tiles != FLOOR
+        """Build solid masks and pixel-accurate fixture rects."""
+        # wall_solid: walls + lawn only — used for robot tile collision
+        self.wall_solid = self.tiles != FLOOR
+
+        # solid: wall_solid + fixture tile footprints — used for item spawn exclusion
+        self.solid = self.wall_solid.copy()
         for name, (w, h) in self.solid_fixtures.items():
             col, row = self.fixtures[name]
             for r in range(row - h // 2, row - h // 2 + h):
                 for c in range(col - w // 2, col - w // 2 + w):
                     if 0 <= r < self.tiles.shape[0] and 0 <= c < self.tiles.shape[1]:
                         self.solid[r, c] = True
+
+        # fixture_pixel_rects: sprite-accurate bounding boxes for robot collision
+        self.fixture_pixel_rects = {}
+        for name, (pw, ph) in self.fixture_pixel_sizes.items():
+            if name in self.fixtures:
+                col, row = self.fixtures[name]
+                cx = col * self.tile_size + self.tile_size // 2
+                cy = row * self.tile_size + self.tile_size // 2
+                self.fixture_pixel_rects[name] = (cx - pw // 2, cy - ph // 2,
+                                                   cx + pw // 2, cy + ph // 2)
 
     def valid_floor_tiles(self) -> list[tuple[int, int]]:
         """Reachable floor tiles (FLOOR and not solid) as (col, row)."""
@@ -79,7 +96,7 @@ class DefaultHouseMap(Map):
 
     tile_size = 32
 
-    # Fixture footprints (tiles, w x h) that block the robot.
+    # Tile footprints for item spawn exclusion (w x h tiles, centered on fixture).
     solid_fixtures = {
         "recliner": (3, 2),
         "tv":       (3, 2),
@@ -87,6 +104,17 @@ class DefaultHouseMap(Map):
         "sink":     (2, 2),
         "counter":  (2, 2),
         "table":    (1, 1),
+    }
+
+    # Sprite pixel sizes at DEFAULT_SCALE=6: (cols * 6, rows * 6).
+    # Used for pixel-accurate robot collision — keeps the robot flush with the sprite edge.
+    fixture_pixel_sizes = {
+        "recliner": (96, 60),   # 16 cols × 10 rows × 6
+        "tv":       (60, 48),   # 10 cols ×  8 rows × 6
+        "fridge":   (60, 42),   # 10 cols ×  7 rows × 6
+        "counter":  (60, 24),   # 10 cols ×  4 rows × 6
+        "sink":     (60, 42),   # 10 cols ×  7 rows × 6
+        "table":    (36, 24),   #  6 cols ×  4 rows × 6
     }
 
     def __init__(self):
