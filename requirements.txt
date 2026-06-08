@@ -1,4 +1,8 @@
-gymnasium>=0.26.0
-pygame>=2.1.0
-numpy>=1.21.0
-pytest>=7.0.0
+matplotlib
+opencv-python==4.10.0.84
+tensorboard
+--extra-index-url https://download.pytorch.org/whl/cu129
+torch
+torchvision
+torchaudio
+git+https://github.com/bobcowher/gym-homebot-2d.git
