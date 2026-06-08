@@ -81,7 +81,7 @@ class DefaultHouseMap(Map):
 
     # Fixture footprints (tiles, w x h) that block the robot.
     solid_fixtures = {
-        "recliner": (3, 3),
+        "recliner": (3, 2),
         "tv":       (3, 2),
         "fridge":   (2, 2),
         "sink":     (2, 2),
