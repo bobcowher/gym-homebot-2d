@@ -134,3 +134,53 @@ def test_subgoal_advances_after_package_pickup():
     assert "deliver_to_human" in info["goals"]
     assert "go_to_door" not in info["goals"]
     e.close()
+
+
+# --- Pickup reward tests ---
+
+def test_drink_pickup_yields_reward_in_subgoals_mode():
+    e = HomeBotEnv(render_mode="rgb_array", subgoals=True)
+    e.reset(seed=0)
+    m, r, tm = e._map, e._robot, e._task_manager
+    r.carrying = None
+    r.x, r.y = m.tile_to_pixel(20, 2)  # adjacent to fridge
+    reward = tm.step(r, m)
+    assert r.carrying == "drink"
+    assert reward == 1.0
+    e.close()
+
+
+def test_drink_pickup_no_reward_in_default_mode():
+    e = HomeBotEnv(render_mode="rgb_array")
+    e.reset(seed=0)
+    m, r, tm = e._map, e._robot, e._task_manager
+    r.carrying = None
+    r.x, r.y = m.tile_to_pixel(20, 2)
+    reward = tm.step(r, m)
+    assert r.carrying == "drink"
+    assert reward == 0.0
+    e.close()
+
+
+def test_package_pickup_yields_reward_in_subgoals_mode():
+    e = HomeBotEnv(render_mode="rgb_array", subgoals=True)
+    e.reset(seed=0)
+    m, r, tm = e._map, e._robot, e._task_manager
+    r.carrying = None
+    r.x, r.y = m.tile_to_pixel(22, 9)  # adjacent to door
+    reward = tm.step(r, m)
+    assert r.carrying == "package"
+    assert reward == 1.0
+    e.close()
+
+
+def test_package_pickup_no_reward_in_default_mode():
+    e = HomeBotEnv(render_mode="rgb_array")
+    e.reset(seed=0)
+    m, r, tm = e._map, e._robot, e._task_manager
+    r.carrying = None
+    r.x, r.y = m.tile_to_pixel(22, 9)
+    reward = tm.step(r, m)
+    assert r.carrying == "package"
+    assert reward == 0.0
+    e.close()

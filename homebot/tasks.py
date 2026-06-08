@@ -14,8 +14,9 @@ def _dist(ax, ay, bx, by) -> float:
 
 
 class TaskManager:
-    def __init__(self, goals: list[str]):
+    def __init__(self, goals: list[str], subgoals: bool = False):
         self.goals = set(goals)
+        self.subgoals = subgoals
         self.trash_positions: list[tuple[int, int]] = []
         self.package_present: bool = False
         self.drink_delivered: bool = False
@@ -101,6 +102,8 @@ class TaskManager:
         if robot.carrying is None:
             if _dist(robot.x, robot.y, fridge_px, fridge_py) <= pickup_dist:
                 robot.carrying = "drink"
+                if self.subgoals:
+                    return 1.0
         elif robot.carrying == "drink":
             if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
                 robot.carrying = None
@@ -119,6 +122,8 @@ class TaskManager:
             if _dist(robot.x, robot.y, door_px, door_py) <= pickup_dist:
                 robot.carrying = "package"
                 self.package_present = False
+                if self.subgoals:
+                    return 1.0
         elif robot.carrying == "package":
             if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
                 robot.carrying = None
