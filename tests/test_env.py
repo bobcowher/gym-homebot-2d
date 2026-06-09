@@ -12,7 +12,7 @@ def env():
 
 
 def test_reset_obs_shape(env):
-    obs, info = env.reset()
+    obs, _ = env.reset()
     assert obs.shape == (84, 84, 3)
     assert obs.dtype == np.uint8
 
@@ -117,4 +117,14 @@ def test_goal_to_coords_on_plain_env():
     expected_x, expected_y = e._map.tile_to_pixel(*e._map.fixtures["fridge"])
     assert x == pytest.approx(expected_x)
     assert y == pytest.approx(expected_y)
+    e.close()
+
+
+def test_goal_env_registered_and_usable():
+    import gymnasium as gym
+    e = gym.make("HomeBot2D-Goal-v1", render_mode="rgb_array")
+    obs, info = e.reset(seed=0)
+    assert "observation" in obs
+    assert "achieved_goal" in obs
+    assert "desired_goal" in obs
     e.close()
