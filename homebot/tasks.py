@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 import numpy as np
 from homebot.maps import Map
 from homebot.robot import Robot
@@ -14,15 +13,16 @@ def _dist(ax, ay, bx, by) -> float:
 
 
 class TaskManager:
-    def __init__(self, goals: list[str], subgoals: bool = False):
+    def __init__(self, goals: list[str]):
         self.goals = set(goals)
-        self.subgoals = subgoals
+        self._map: Map  # assigned by reset() before step() is ever called
         self.trash_positions: list[tuple[int, int]] = []
         self.package_present: bool = False
         self.drink_delivered: bool = False
         self.package_delivered: bool = False
 
     def reset(self, map: Map, n_trash: int, rng: np.random.Generator):
+        self._map = map
         fixture_tiles = list(map.fixtures.values())
         self.trash_positions = (
             map.spawn_trash(n_trash, rng, exclude=fixture_tiles)
@@ -33,11 +33,11 @@ class TaskManager:
         self.drink_delivered = False
         self.package_delivered = False
 
-    def step(self, robot: Robot, map: Map) -> float:
+    def step(self, robot: Robot) -> float:
         reward = 0.0
-        reward += self._check_trash(robot, map)
-        reward += self._check_drink(robot, map)
-        reward += self._check_package(robot, map)
+        reward += self._check_trash(robot)
+        reward += self._check_drink(robot)
+        reward += self._check_package(robot)
         return reward
 
     def is_done(self) -> bool:
@@ -46,28 +46,17 @@ class TaskManager:
         package_done = "package" not in self.goals or self.package_delivered
         return trash_done and drink_done and package_done
 
-    def active_goals(self, robot: Optional["Robot"] = None) -> list[str]:
-        """Return active goal strings. Without robot: high-level goals. With robot: current sub-goals."""
+    def active_goals(self, robot: "Robot") -> list[str]:
         result = []
         if "trash" in self.goals and self.trash_positions:
             result.append("collect_trash")
         if "drink" in self.goals and not self.drink_delivered:
-            if robot is None:
-                result.append("fetch_drink")
-            elif robot.carrying == "drink":
-                result.append("deliver_to_human")
-            else:
-                result.append("go_to_fridge")
+            result.append("deliver_to_human" if robot.carrying == "drink" else "go_to_fridge")
         if "package" in self.goals and not self.package_delivered:
-            if robot is None:
-                result.append("retrieve_package")
-            elif robot.carrying == "package":
-                result.append("deliver_to_human")
-            else:
-                result.append("go_to_door")
+            result.append("deliver_to_human" if robot.carrying == "package" else "go_to_door")
         return result
 
-    def get_info(self, robot: Optional["Robot"] = None) -> dict:
+    def get_info(self, robot: "Robot") -> dict:
         return {
             "goals": self.active_goals(robot),
             "trash_remaining": len(self.trash_positions),
@@ -76,15 +65,42 @@ class TaskManager:
             "package_present": self.package_present,
         }
 
-    def _check_trash(self, robot: Robot, map: Map) -> float:
+    # --- internal helpers ---
+
+    def _check_pickup_delivery(
+        self, robot: Robot, goal: str, pickup_fixture: str,
+        carrying_val: str, is_delivered: bool, pickup_available: bool = True,
+    ) -> tuple[float, bool, bool]:
+        """Shared pickup→carry→deliver logic.
+
+        Returns (reward, is_delivered, pickup_available).
+        pickup_available lets callers track a depletable source (e.g. package at door).
+        Pass pickup_available=True and discard the returned value for infinite sources (fridge).
+        """
+        if goal not in self.goals or is_delivered:
+            return 0.0, is_delivered, pickup_available
+        pickup_dist = robot.RADIUS + self._map.tile_size * _FIXTURE_RANGE
+        pickup_px, pickup_py = self._map.tile_to_pixel(*self._map.fixtures[pickup_fixture])
+        rec_px, rec_py = self._map.tile_to_pixel(*self._map.fixtures["recliner"])
+        if robot.carrying is None and pickup_available:
+            if _dist(robot.x, robot.y, pickup_px, pickup_py) <= pickup_dist:
+                robot.carrying = carrying_val
+                pickup_available = False
+        elif robot.carrying == carrying_val:
+            if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
+                robot.carrying = None
+                return 1.0, True, pickup_available
+        return 0.0, is_delivered, pickup_available
+
+    def _check_trash(self, robot: Robot) -> float:
         if "trash" not in self.goals:
             return 0.0
         # Trash collection does not require empty hands — robot vacuums while carrying.
-        pickup_dist = robot.RADIUS + map.tile_size * _TRASH_RANGE
+        pickup_dist = robot.RADIUS + self._map.tile_size * _TRASH_RANGE
         reward = 0.0
         remaining = []
         for pos in self.trash_positions:
-            px, py = map.tile_to_pixel(*pos)
+            px, py = self._map.tile_to_pixel(*pos)
             if _dist(robot.x, robot.y, px, py) <= pickup_dist:
                 reward += 1.0
             else:
@@ -92,41 +108,14 @@ class TaskManager:
         self.trash_positions = remaining
         return reward
 
-    def _check_drink(self, robot: Robot, map: Map) -> float:
-        if "drink" not in self.goals or self.drink_delivered:
-            return 0.0
-        pickup_dist = robot.RADIUS + map.tile_size * _FIXTURE_RANGE
-        fridge_px, fridge_py = map.tile_to_pixel(*map.fixtures["fridge"])
-        rec_px, rec_py = map.tile_to_pixel(*map.fixtures["recliner"])
+    def _check_drink(self, robot: Robot) -> float:
+        reward, self.drink_delivered, _ = self._check_pickup_delivery(
+            robot, "drink", "fridge", "drink", self.drink_delivered,
+        )
+        return reward
 
-        if robot.carrying is None:
-            if _dist(robot.x, robot.y, fridge_px, fridge_py) <= pickup_dist:
-                robot.carrying = "drink"
-                if self.subgoals:
-                    return 1.0
-        elif robot.carrying == "drink":
-            if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
-                robot.carrying = None
-                self.drink_delivered = True
-                return 1.0
-        return 0.0
-
-    def _check_package(self, robot: Robot, map: Map) -> float:
-        if "package" not in self.goals or self.package_delivered:
-            return 0.0
-        pickup_dist = robot.RADIUS + map.tile_size * _FIXTURE_RANGE
-        door_px, door_py = map.tile_to_pixel(*map.fixtures["door"])
-        rec_px, rec_py = map.tile_to_pixel(*map.fixtures["recliner"])
-
-        if robot.carrying is None and self.package_present:
-            if _dist(robot.x, robot.y, door_px, door_py) <= pickup_dist:
-                robot.carrying = "package"
-                self.package_present = False
-                if self.subgoals:
-                    return 1.0
-        elif robot.carrying == "package":
-            if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
-                robot.carrying = None
-                self.package_delivered = True
-                return 1.0
-        return 0.0
+    def _check_package(self, robot: Robot) -> float:
+        reward, self.package_delivered, self.package_present = self._check_pickup_delivery(
+            robot, "package", "door", "package", self.package_delivered, self.package_present,
+        )
+        return reward
