@@ -107,3 +107,14 @@ def test_gymnasium_env_check():
     e = HomeBotEnv(n_trash=2, max_steps=50)
     check_env(e, skip_render_check=True)
     e.close()
+
+
+def test_goal_to_coords_on_plain_env():
+    import pytest
+    e = HomeBotEnv(render_mode="rgb_array")
+    e.reset(seed=0)
+    x, y = e.goal_to_coords("go_to_fridge")
+    expected_x, expected_y = e._map.tile_to_pixel(*e._map.fixtures["fridge"])
+    assert x == pytest.approx(expected_x)
+    assert y == pytest.approx(expected_y)
+    e.close()
