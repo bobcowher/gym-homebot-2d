@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Optional, Type
 
+from homebot.sprites import SPRITE_SIZES
+
 FLOOR = 0
 WALL = 1
 LAWN = 2   # outside ground: rendered green, solid (robot cannot enter)
@@ -19,11 +21,12 @@ class Map:
     fixtures: dict           # {"fridge": (col, row), "tv": (col, row), ...}
     robot_start_tile: tuple  # (col, row)
     door_tiles: list         # FLOOR tiles rendered as a stoop threshold
+    _floor_tiles: list       # cached result of valid_floor_tiles(); set by _finalize()
     solid_fixtures: dict = {}       # {name: (w_tiles, h_tiles)} tile footprints for item spawn
-    fixture_pixel_sizes: dict = {}  # {name: (px_w, px_h)} sprite pixel dimensions at render scale
+    fixture_pixel_sizes: dict = {}  # {name: (px_w, px_h)} derived from sprites; override in subclass
 
     def _finalize(self):
-        """Build solid masks and pixel-accurate fixture rects."""
+        """Build solid masks, pixel-accurate fixture rects, and floor tile cache."""
         # wall_solid: walls + lawn only — used for robot tile collision
         self.wall_solid = self.tiles != FLOOR
 
@@ -46,11 +49,14 @@ class Map:
                 self.fixture_pixel_rects[name] = (cx - pw // 2, cy - ph // 2,
                                                    cx + pw // 2, cy + ph // 2)
 
+        # Cache reachable floor tiles — map is immutable after _finalize()
+        mask = (self.tiles == FLOOR) & (~self.solid)
+        rows, cols_arr = np.where(mask)
+        self._floor_tiles = list(zip(cols_arr.tolist(), rows.tolist()))
+
     def valid_floor_tiles(self) -> list[tuple[int, int]]:
         """Reachable floor tiles (FLOOR and not solid) as (col, row)."""
-        mask = (self.tiles == FLOOR) & (~self.solid)
-        rows, cols = np.where(mask)
-        return list(zip(cols.tolist(), rows.tolist()))
+        return list(self._floor_tiles)  # copy so callers can't mutate the cache
 
     def spawn_trash(
         self,
@@ -106,16 +112,8 @@ class DefaultHouseMap(Map):
         "table":    (1, 1),
     }
 
-    # Sprite pixel sizes at DEFAULT_SCALE=6: (cols * 6, rows * 6).
-    # Used for pixel-accurate robot collision — keeps the robot flush with the sprite edge.
-    fixture_pixel_sizes = {
-        "recliner": (96, 60),   # 16 cols × 10 rows × 6
-        "tv":       (60, 48),   # 10 cols ×  8 rows × 6
-        "fridge":   (60, 42),   # 10 cols ×  7 rows × 6
-        "counter":  (60, 24),   # 10 cols ×  4 rows × 6
-        "sink":     (60, 42),   # 10 cols ×  7 rows × 6
-        "table":    (36, 24),   #  6 cols ×  4 rows × 6
-    }
+    # Derived from sprite grids in sprites.py — stays in sync automatically.
+    fixture_pixel_sizes = SPRITE_SIZES
 
     def __init__(self):
         COLS, ROWS = 27, 18

@@ -151,6 +151,22 @@ CAN = [
 
 DEFAULT_SCALE = 6  # px per source pixel — keep consistent across sprites
 
+# Maps fixture names to their grids so SPRITE_SIZES can be derived automatically.
+# Add any new collision fixture here; maps.py will pick up the size without changes.
+_FIXTURE_GRIDS = {
+    "recliner": RECLINER,
+    "tv":       TV,
+    "fridge":   FRIDGE,
+    "counter":  COUNTER,
+    "sink":     SINK,
+    "table":    TABLE,
+}
+
+SPRITE_SIZES: dict[str, tuple[int, int]] = {
+    name: (max(len(row) for row in grid) * DEFAULT_SCALE, len(grid) * DEFAULT_SCALE)
+    for name, grid in _FIXTURE_GRIDS.items()
+}
+
 
 def make_sprite(grid, scale: int = DEFAULT_SCALE, palette: dict = PALETTE) -> pygame.Surface:
     """Build a crisp, scaled pixel-art Surface (with alpha) from a character grid."""

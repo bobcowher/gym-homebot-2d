@@ -71,6 +71,7 @@ class Renderer:
         self._can_sprite = make_sprite(CAN)
 
         # Pre-bake static geometry: tiles + non-animated fixtures.
+        # Recliner is excluded here — it has a gentle rock animation and is drawn each frame.
         self._static = pygame.Surface((game_map.pixel_width, game_map.pixel_height))
         self._draw_map_to(self._static)
         self._blit_sprite_at_fixture(self._static, self._tv_sprite, "tv")
@@ -179,6 +180,7 @@ class Renderer:
     def _draw_items(self, task_manager: TaskManager):
         ts = self.map.tile_size
         for col, row in task_manager.trash_positions:
+            # deterministic sprite variety per tile position — bottles and cans mixed without randomness
             sprite = self._bottle_sprite if (col * 7 + row * 13) % 2 == 0 else self._can_sprite
             sw, sh = sprite.get_size()
             px = col * ts + ts // 2

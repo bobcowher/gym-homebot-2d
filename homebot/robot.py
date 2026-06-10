@@ -75,9 +75,9 @@ class Robot:
         if fixture_rects:
             r2 = self.RADIUS * self.RADIUS
             for (left, top, right, bottom) in fixture_rects.values():
-                nx = max(left, min(x, right))
-                ny = max(top, min(y, bottom))
-                if (x - nx) ** 2 + (y - ny) ** 2 < r2:
+                clamp_x = max(left, min(x, right))
+                clamp_y = max(top, min(y, bottom))
+                if (x - clamp_x) ** 2 + (y - clamp_y) ** 2 < r2:
                     return True
 
         return False

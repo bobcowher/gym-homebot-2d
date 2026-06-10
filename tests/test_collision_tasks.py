@@ -44,7 +44,7 @@ def test_trash_pickup(env):
     r.x, r.y = m.tile_to_pixel(col, row)
     r.carrying = None
     before = len(tm.trash_positions)
-    tm.step(r, m)
+    tm.step(r)
     assert len(tm.trash_positions) == before - 1
 
 
@@ -52,10 +52,10 @@ def test_drink_pickup_and_delivery(env):
     m, r, tm = env._map, env._robot, env._task_manager
     r.carrying = None
     r.x, r.y = m.tile_to_pixel(20, 2)  # adjacent to fridge (fridge now at row 1)
-    tm.step(r, m)
+    tm.step(r)
     assert r.carrying == "drink"
     r.x, r.y = m.tile_to_pixel(7, 5)   # adjacent to recliner
-    tm.step(r, m)
+    tm.step(r)
     assert tm.drink_delivered and r.carrying is None
 
 
@@ -63,8 +63,8 @@ def test_package_pickup_and_delivery(env):
     m, r, tm = env._map, env._robot, env._task_manager
     r.carrying = None
     r.x, r.y = m.tile_to_pixel(22, 9)  # adjacent to door
-    tm.step(r, m)
+    tm.step(r)
     assert r.carrying == "package"
     r.x, r.y = m.tile_to_pixel(7, 5)   # adjacent to recliner
-    tm.step(r, m)
+    tm.step(r)
     assert tm.package_delivered and r.carrying is None
