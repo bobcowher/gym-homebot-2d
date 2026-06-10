@@ -12,9 +12,9 @@ pip install gym-homebot-2d
 
 ```python
 import gymnasium as gym
-import homebot  # registers HomeBot2D-v1
+import homebot  # registers HomeBot2D-V1
 
-env = gym.make("HomeBot2D-v1", render_mode="human")
+env = gym.make("HomeBot2D-V1", render_mode="human")
 obs, info = env.reset()
 for _ in range(1000):
     obs, reward, terminated, truncated, info = env.step(env.action_space.sample())

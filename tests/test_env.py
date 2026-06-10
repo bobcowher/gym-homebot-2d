@@ -122,7 +122,7 @@ def test_goal_to_coordinates_on_plain_env():
 
 def test_goal_env_registered_and_usable():
     import gymnasium as gym
-    e = gym.make("HomeBot2D-Goal-v1", render_mode="rgb_array")
+    e = gym.make("HomeBot2D-Goal-V1", render_mode="rgb_array")
     obs, _ = e.reset(seed=0)
     assert "observation" in obs
     assert "achieved_goal" in obs
