@@ -17,7 +17,7 @@ GOAL_REGISTRY: dict[str, tuple[str, Optional[str]]] = {
 GOAL_NAMES: list[str] = list(GOAL_REGISTRY.keys())
 
 
-def goal_to_coords(
+def goal_to_coordinates(
     goal_name: str,
     map: Map,
     trash_positions: Optional[list[tuple[int, int]]] = None,

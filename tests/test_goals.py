@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from homebot.maps import DefaultHouseMap
 from homebot.tasks import TaskManager
-from homebot.goals import GOAL_REGISTRY, GOAL_NAMES, GOAL_THRESHOLD, goal_to_coords
+from homebot.goals import GOAL_REGISTRY, GOAL_NAMES, GOAL_THRESHOLD, goal_to_coordinates
 
 
 def _setup():
@@ -25,21 +25,21 @@ def test_goal_threshold_positive():
 
 def test_fixture_goal_returns_pixel_coords():
     m, tm = _setup()
-    x, y = goal_to_coords("go_to_fridge", m)
+    x, y = goal_to_coordinates("go_to_fridge", m)
     fx, fy = m.tile_to_pixel(*m.fixtures["fridge"])
     assert x == pytest.approx(fx) and y == pytest.approx(fy)
 
 
 def test_deliver_drink_returns_recliner_coords():
     m, tm = _setup()
-    x, y = goal_to_coords("deliver_drink", m)
+    x, y = goal_to_coordinates("deliver_drink", m)
     rx, ry = m.tile_to_pixel(*m.fixtures["recliner"])
     assert x == pytest.approx(rx) and y == pytest.approx(ry)
 
 
 def test_collect_trash_returns_existing_tile():
     m, tm = _setup()
-    x, y = goal_to_coords("collect_trash", m, tm.trash_positions)
+    x, y = goal_to_coordinates("collect_trash", m, tm.trash_positions)
     tile_coords = [m.tile_to_pixel(*pos) for pos in tm.trash_positions]
     assert (x, y) in tile_coords
 
@@ -47,7 +47,7 @@ def test_collect_trash_returns_existing_tile():
 def test_collect_trash_raises_when_no_trash():
     m, _ = _setup()
     with pytest.raises(ValueError):
-        goal_to_coords("collect_trash", m, [])
+        goal_to_coordinates("collect_trash", m, [])
 
 
 def test_initial_carry_none_for_navigation_goals():

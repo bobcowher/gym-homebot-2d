@@ -6,7 +6,7 @@ from homebot.maps import MAP_REGISTRY, Map
 from homebot.robot import Robot
 from homebot.tasks import TaskManager
 from homebot.renderer import Renderer
-from homebot.goals import goal_to_coords as _goal_to_coords
+from homebot.goals import goal_to_coordinates as _goal_to_coordinates
 
 
 class _HomeBotCore:
@@ -36,8 +36,8 @@ class _HomeBotCore:
         self.n_trash = n_trash
         self._steps = 0
 
-    def goal_to_coords(self, goal_name: str) -> tuple[float, float]:
-        return _goal_to_coords(
+    def goal_to_coordinates(self, goal_name: str) -> tuple[float, float]:
+        return _goal_to_coordinates(
             goal_name, self._map, self._task_manager.trash_positions,
             self.np_random,  # type: ignore[attr-defined]
         )
@@ -121,7 +121,7 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
 
     reset(options={"goal": "random"|goal_name}) selects the episode goal.
     In training mode (evaluate=False), carry state is pre-loaded when the goal requires it.
-    goal_to_coords(name) converts any goal name to pixel (x, y) for external orchestrators.
+    goal_to_coordinates(name) converts any goal name to pixel (x, y) for external orchestrators.
     """
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
@@ -175,13 +175,13 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
         self._task_manager.reset(self._map, self.n_trash, self.np_random)  # type: ignore[attr-defined]
         self._steps = 0
 
-        from homebot.goals import GOAL_REGISTRY, goal_to_coords
+        from homebot.goals import GOAL_REGISTRY, goal_to_coordinates
         _, initial_carry = GOAL_REGISTRY[goal_name]
         if not self.evaluate and initial_carry is not None:
             self._robot.carrying = initial_carry
 
         # Fix desired_goal for the full episode — stable even after the item is picked up.
-        gx, gy = goal_to_coords(
+        gx, gy = goal_to_coordinates(
             goal_name, self._map, self._task_manager.trash_positions,
             self.np_random,  # type: ignore[attr-defined]
         )

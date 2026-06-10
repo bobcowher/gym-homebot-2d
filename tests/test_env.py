@@ -109,11 +109,11 @@ def test_gymnasium_env_check():
     e.close()
 
 
-def test_goal_to_coords_on_plain_env():
+def test_goal_to_coordinates_on_plain_env():
     import pytest
     e = HomeBotEnv(render_mode="rgb_array")
     e.reset(seed=0)
-    x, y = e.goal_to_coords("go_to_fridge")
+    x, y = e.goal_to_coordinates("go_to_fridge")
     expected_x, expected_y = e._map.tile_to_pixel(*e._map.fixtures["fridge"])
     assert x == pytest.approx(expected_x)
     assert y == pytest.approx(expected_y)
@@ -123,7 +123,7 @@ def test_goal_to_coords_on_plain_env():
 def test_goal_env_registered_and_usable():
     import gymnasium as gym
     e = gym.make("HomeBot2D-Goal-v1", render_mode="rgb_array")
-    obs, info = e.reset(seed=0)
+    obs, _ = e.reset(seed=0)
     assert "observation" in obs
     assert "achieved_goal" in obs
     assert "desired_goal" in obs

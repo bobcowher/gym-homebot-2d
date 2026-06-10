@@ -146,10 +146,10 @@ def test_goals_subset_restricts_random_selection():
     e.close()
 
 
-def test_goal_to_coords_exposed_on_goal_env():
+def test_goal_to_coordinates_exposed_on_goal_env():
     e = HomeBotGoalEnv(render_mode="rgb_array")
     e.reset(seed=0)
-    x, y = e.goal_to_coords("go_to_fridge")
+    x, y = e.goal_to_coordinates("go_to_fridge")
     assert x > 0 and y > 0
     e.close()
 
