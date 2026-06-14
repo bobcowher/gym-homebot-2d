@@ -80,10 +80,10 @@ class Renderer:
         self._blit_sprite_at_fixture(self._static, self._fridge_sprite, "fridge")
         self._blit_sprite_at_fixture(self._static, self._table_sprite, "table")
 
-    def render(self, robot: Robot, task_manager: TaskManager) -> pygame.Surface:
+    def render(self, robot: Robot, task_manager: TaskManager, step: int = 0) -> pygame.Surface:
         """Draw frame to internal surface. Return viewport Surface centered on robot."""
         self._surface.blit(self._static, (0, 0))
-        self._draw_recliner()
+        self._draw_recliner(step)
         self._draw_items(task_manager)
         self._draw_robot(robot)
         return self._extract_viewport(robot)
@@ -172,9 +172,9 @@ class Renderer:
         w, h = sprite.get_size()
         surface.blit(sprite, (cx - w // 2, cy - h // 2 + dy))
 
-    def _draw_recliner(self):
-        # Gentle rocking: ±1px, ~4-second cycle
-        rock = round(math.sin(pygame.time.get_ticks() / 1000.0 * 1.5))
+    def _draw_recliner(self, step: int = 0):
+        # Gentle rocking: ±1px, driven by step count for determinism
+        rock = round(math.sin(step / 60.0 * 1.5))
         self._blit_sprite_at_fixture(self._surface, self._recliner_sprite, "recliner", dy=rock)
 
     def _draw_items(self, task_manager: TaskManager):

@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 import numpy as np
 import gymnasium as gym
@@ -7,6 +8,9 @@ from homebot.robot import Robot
 from homebot.tasks import TaskManager
 from homebot.renderer import Renderer
 from homebot.goals import goal_to_coordinates as _goal_to_coordinates
+
+# Minimum spawn distance from any goal location: 2 × robot body diameter.
+_RANDOM_START_CLEARANCE = 4 * Robot.RADIUS  # 4 × 15 = 60 px
 
 
 class _HomeBotCore:
@@ -22,6 +26,7 @@ class _HomeBotCore:
         render_mode: Optional[str],
         n_trash: int,
         map_name: str,
+        random_start: bool,
     ):
         if action_mode not in ("discrete", "continuous"):
             raise ValueError(f"action_mode must be 'discrete' or 'continuous', got {action_mode!r}")
@@ -34,7 +39,47 @@ class _HomeBotCore:
         self.max_steps = max_steps
         self.render_mode = render_mode
         self.n_trash = n_trash
+        self.random_start = random_start
         self._steps = 0
+
+    def _sample_start_pos(self) -> tuple[float, float]:
+        """Return a random valid spawn pixel (x, y) for the robot.
+
+        Guarantees: on a walkable floor tile, robot circle fits without collision,
+        and at least _RANDOM_START_CLEARANCE px from every goal location (fixtures
+        fridge/recliner/door plus current trash tile centres).
+        Falls back to the default start tile if no candidate passes all filters.
+        """
+        ts = self._map.tile_size
+
+        goal_pixels: list[tuple[float, float]] = []
+        for col, row in self._task_manager.trash_positions:
+            px, py = self._map.tile_to_pixel(col, row)
+            goal_pixels.append((float(px), float(py)))
+        for fname in ("fridge", "recliner", "door"):
+            if fname in self._map.fixtures:
+                px, py = self._map.tile_to_pixel(*self._map.fixtures[fname])
+                goal_pixels.append((float(px), float(py)))
+
+        candidates = self._map.valid_floor_tiles()
+        order = self.np_random.permutation(len(candidates))  # type: ignore[attr-defined]
+
+        for idx in order:
+            col, row = candidates[int(idx)]
+            px, py = self._map.tile_to_pixel(col, row)
+            fpx, fpy = float(px), float(py)
+            if any(
+                math.sqrt((fpx - gx) ** 2 + (fpy - gy) ** 2) < _RANDOM_START_CLEARANCE
+                for gx, gy in goal_pixels
+            ):
+                continue
+            if not self._robot._collides(fpx, fpy, self._map.wall_solid, ts,
+                                          self._map.fixture_pixel_rects):
+                return fpx, fpy
+
+        # Fallback — should be very rare given map size vs clearance
+        px, py = self._map.tile_to_pixel(*self._map.robot_start_tile)
+        return float(px), float(py)
 
     def goal_to_coordinates(self, goal_name: str) -> tuple[float, float]:
         return _goal_to_coordinates(
@@ -43,13 +88,13 @@ class _HomeBotCore:
         )
 
     def _get_obs(self) -> np.ndarray:
-        viewport = self._renderer.render(self._robot, self._task_manager)
+        viewport = self._renderer.render(self._robot, self._task_manager, self._steps)
         if self.render_mode == "human":
             self._renderer.show_in_window(viewport)
         return self._renderer.to_obs(viewport, self.obs_resolution)
 
     def render(self) -> Optional[np.ndarray]:
-        viewport = self._renderer.render(self._robot, self._task_manager)
+        viewport = self._renderer.render(self._robot, self._task_manager, self._steps)
         if self.render_mode == "human":
             self._renderer.show_in_window(viewport)
             return None
@@ -71,11 +116,13 @@ class HomeBotEnv(_HomeBotCore, gym.Env):
         render_mode: Optional[str] = None,
         n_trash: int = 2,
         map_name: str = "default",
+        random_start: bool = False,
     ):
         super().__init__()
         self._init_core(
             goals or ["trash", "drink", "package"],
             action_mode, obs_resolution, max_steps, render_mode, n_trash, map_name,
+            random_start,
         )
         if action_mode == "discrete":
             self.action_space = gym.spaces.Discrete(8)
@@ -93,6 +140,8 @@ class HomeBotEnv(_HomeBotCore, gym.Env):
         self._robot.reset()
         self._task_manager.reset(self._map, self.n_trash, self.np_random)
         self._steps = 0
+        if self.random_start:
+            self._robot.x, self._robot.y = self._sample_start_pos()
         obs = self._get_obs()
         info = self._task_manager.get_info(self._robot)
         info["carrying"] = self._robot.carrying
@@ -135,6 +184,7 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
         n_trash: int = 2,
         map_name: str = "default",
         evaluate: bool = False,
+        random_start: bool = False,
     ):
         super().__init__()
         from homebot.goals import GOAL_NAMES
@@ -145,6 +195,7 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
         self._init_core(
             ["trash", "drink", "package"],
             action_mode, obs_resolution, max_steps, render_mode, n_trash, map_name,
+            random_start,
         )
         if action_mode == "discrete":
             self.action_space = gym.spaces.Discrete(8)
@@ -174,6 +225,9 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
         self._robot.reset()
         self._task_manager.reset(self._map, self.n_trash, self.np_random)  # type: ignore[attr-defined]
         self._steps = 0
+
+        if self.random_start:
+            self._robot.x, self._robot.y = self._sample_start_pos()
 
         from homebot.goals import GOAL_REGISTRY, goal_to_coordinates
         _, initial_carry = GOAL_REGISTRY[goal_name]
