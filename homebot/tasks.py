@@ -3,9 +3,13 @@ import numpy as np
 from homebot.maps import Map
 from homebot.robot import Robot
 
-_FIXTURE_RANGE = 2.0  # tile_size multiplier for fridge/recliner/door interaction radius
+_FIXTURE_RANGE = 2.0  # tile_size multiplier for fridge/recliner interaction radius
                       # (generous so the robot can interact while fixtures are solid)
 _TRASH_RANGE = 0.5   # tile_size multiplier for floor trash pickup (tighter than fixtures)
+_DOOR_RANGE = 1.0    # tile_size multiplier for package pickup at the door. The door is a
+                     # walk-on FLOOR threshold (not a solid fixture), so the robot must
+                     # actually reach the doorway — a generous fixture reach let it grab
+                     # the package 2+ tiles short, skipping the hallway.
 
 
 def _dist(ax, ay, bx, by) -> float:
@@ -70,16 +74,20 @@ class TaskManager:
     def _check_pickup_delivery(
         self, robot: Robot, goal: str, pickup_fixture: str,
         carrying_val: str, is_delivered: bool, pickup_available: bool = True,
+        pickup_range: float = _FIXTURE_RANGE,
     ) -> tuple[float, bool, bool]:
         """Shared pickup→carry→deliver logic.
 
         Returns (reward, is_delivered, pickup_available).
         pickup_available lets callers track a depletable source (e.g. package at door).
         Pass pickup_available=True and discard the returned value for infinite sources (fridge).
+        pickup_range scales the pickup interaction radius (default = solid-fixture reach);
+        delivery is always to the (solid) recliner, so it keeps the fixture reach.
         """
         if goal not in self.goals or is_delivered:
             return 0.0, is_delivered, pickup_available
-        pickup_dist = robot.RADIUS + self._map.tile_size * _FIXTURE_RANGE
+        pickup_dist = robot.RADIUS + self._map.tile_size * pickup_range
+        deliver_dist = robot.RADIUS + self._map.tile_size * _FIXTURE_RANGE
         pickup_px, pickup_py = self._map.tile_to_pixel(*self._map.fixtures[pickup_fixture])
         rec_px, rec_py = self._map.tile_to_pixel(*self._map.fixtures["recliner"])
         if robot.carrying is None and pickup_available:
@@ -87,7 +95,7 @@ class TaskManager:
                 robot.carrying = carrying_val
                 pickup_available = False
         elif robot.carrying == carrying_val:
-            if _dist(robot.x, robot.y, rec_px, rec_py) <= pickup_dist:
+            if _dist(robot.x, robot.y, rec_px, rec_py) <= deliver_dist:
                 robot.carrying = None
                 return 1.0, True, pickup_available
         return 0.0, is_delivered, pickup_available
@@ -117,5 +125,6 @@ class TaskManager:
     def _check_package(self, robot: Robot) -> float:
         reward, self.package_delivered, self.package_present = self._check_pickup_delivery(
             robot, "package", "door", "package", self.package_delivered, self.package_present,
+            pickup_range=_DOOR_RANGE,
         )
         return reward
