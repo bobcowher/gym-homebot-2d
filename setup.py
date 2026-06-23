@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="gym-homebot-2d",
-    version="0.1.0",
+    version="0.1.1",
     author="Robert Cowher",
     author_email="bobcowher@gmail.com",
     description="A Gymnasium environment for a top-down 2D home robot task simulation",

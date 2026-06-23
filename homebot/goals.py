@@ -5,6 +5,14 @@ from homebot.maps import Map
 # Robot.RADIUS(15) + _FIXTURE_RANGE(2.0) * tile_size(32) — matches TaskManager fixture interaction radius
 GOAL_THRESHOLD = 79.0
 
+# Single tight radius for HER hindsight relabeling (compute_reward). Real transitions
+# learn from the TRUE task reward (TaskManager, per-target physics); only synthetic
+# hindsight goals need a geometric proxy, and one tight value teaches precise reach.
+# 31 = the tightest real interaction radius (trash). Since 31 <= 47 (door) <= 79
+# (fixture), a proxy that credits 31-precision automatically satisfies every real
+# target — one principled number, not per-target hand-engineering.
+RELABEL_RADIUS = 31.0
+
 # (target: fixture name or "trash", initial_carry: None | str)
 GOAL_REGISTRY: dict[str, tuple[str, Optional[str]]] = {
     "go_to_fridge":    ("fridge",   None),

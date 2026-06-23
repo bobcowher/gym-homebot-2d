@@ -255,12 +255,13 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
                                         self._map.wall_solid, self._map.tile_size,
                                         self._map.fixture_pixel_rects)
 
-        # Run task manager to update carry state and remove collected items.
-        # Its reward signal is ignored — reward comes from compute_reward.
-        self._task_manager.step(self._robot)
-
-        achieved = np.array([self._robot.x, self._robot.y], dtype=np.float32)
-        reward = float(self.compute_reward(achieved, self._desired_goal, {}))
+        # Real per-target reward straight from the task manager (trash 31px /
+        # door 47px / fixture 79px — see tasks.py). Terminate when the active goal's
+        # real reward FIRES (single active goal per episode), not on a geometric
+        # radius and not on global is_done() (which wants every registered goal).
+        # compute_reward is now ONLY the HER hindsight relabel proxy (synthetic
+        # goals); real transitions learn from this true reward and HER fills the rest.
+        reward = float(self._task_manager.step(self._robot))
         terminated = reward > 0.5
         truncated = self._steps >= self.max_steps
 
@@ -274,12 +275,15 @@ class HomeBotGoalEnv(_HomeBotCore, gym.Env):
         desired_goal: np.ndarray,
         info: dict,
     ) -> np.ndarray:
-        """Sparse 0/1: 1.0 if within GOAL_THRESHOLD of desired_goal.
-        Handles batched inputs (HER relabeling passes arrays of goals)."""
-        from homebot.goals import GOAL_THRESHOLD
+        """HER hindsight relabel proxy ONLY: sparse 0/1, 1.0 within RELABEL_RADIUS
+        of desired_goal. Real transitions use the TaskManager's true reward (see
+        step); this geometric stand-in exists solely because relabeled goals are
+        arbitrary coords the task mechanics can't score. Handles batched inputs
+        (HER passes arrays of goals)."""
+        from homebot.goals import RELABEL_RADIUS
         diff = np.asarray(achieved_goal, dtype=np.float32) - np.asarray(desired_goal, dtype=np.float32)
         dist = np.linalg.norm(diff, axis=-1)
-        return (dist <= GOAL_THRESHOLD).astype(np.float32)
+        return (dist <= RELABEL_RADIUS).astype(np.float32)
 
     def _build_obs(self) -> dict:
         return {
